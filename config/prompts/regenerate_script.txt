@@ -1,0 +1,6 @@
+上一版脚本审核不通过，需要重新生成。请根据审核备注调整，保持同一产品与方向。
+
+审核备注：{review_note}
+原脚本摘要：{original_summary}
+
+重新输出完整 JSON 脚本（格式同 script_system.txt）。

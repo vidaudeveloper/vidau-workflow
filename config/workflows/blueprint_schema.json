@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AdFlow Workflow Blueprint",
+  "description": "Per-user customizable TikTok ad production pipeline. Replaces fixed SOP.",
+  "type": "object",
+  "required": ["workflow_id", "platform", "goal", "video_spec", "production", "creative"],
+  "properties": {
+    "workflow_id": { "type": "string" },
+    "platform": { "enum": ["tiktok", "reels", "shorts"] },
+    "goal": { "enum": ["traffic", "conversion", "awareness"] },
+    "product_id": { "type": "string" },
+    "product_name": { "type": "string" },
+    "status": { "enum": ["draft", "confirmed"] },
+    "reference": {
+      "type": "object",
+      "properties": {
+        "source": { "type": "string", "description": "Uploaded reference video URL or path" },
+        "mode": { "enum": ["structure_clone", "hook_only", "mood_only"] },
+        "decomposition_id": { "type": "string" }
+      }
+    },
+    "video_spec": {
+      "type": "object",
+      "properties": {
+        "duration_sec": { "type": "integer", "minimum": 5, "maximum": 60 },
+        "aspect_ratio": { "type": "string", "default": "9:16" },
+        "segment_strategy": { "enum": ["single", "dual"] },
+        "segment_duration_sec": { "type": "integer" },
+        "pacing": { "type": "string" },
+        "max_shots": { "type": "integer" }
+      }
+    },
+    "production": {
+      "type": "object",
+      "properties": {
+        "image_input": { "enum": ["product_refs", "reference_frame"] },
+        "use_first_frame": { "type": "boolean" },
+        "first_frame_reason": { "type": "string" },
+        "tts": { "type": "boolean" },
+        "subtitles": {
+          "enum": ["burn_in", "skip"],
+          "description": "skip=无字幕；burn_in=烧录（原生口播用 Whisper 对齐，TTS 模式跟 TTS 时间轴）"
+        },
+        "language": { "type": "string" },
+        "seedance_native_audio": { "type": ["boolean", "null"] },
+        "ugc_viral_format": { "type": ["boolean", "null"] },
+        "prompt_format": { "type": "string", "description": "viral_15s_blocks | standard" },
+        "review_mode": {
+          "enum": ["autopilot", "manual"],
+          "description": "autopilot=确认后全自动无脚本/分镜闸门；manual=需人工审核"
+        }
+      }
+    },
+    "creative": {
+      "type": "object",
+      "properties": {
+        "hook_style": { "type": "string" },
+        "narrative_template": { "type": "string" },
+        "narrative_rule": { "type": "string" },
+        "reference_style": { "type": "string" },
+        "scene_style": { "type": "string" },
+        "forbidden": { "type": "array", "items": { "type": "string" } },
+        "acceptance_points": { "type": "array", "items": { "type": "string" } },
+        "prompt_profile": { "type": "string", "description": "default | ugc_15s" },
+        "storyboard_profile": { "type": "string", "description": "default | ugc_viral_15s" },
+        "beat_structure": { "type": "string" },
+        "variant_scripts": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "batch": {
+      "type": "object",
+      "properties": {
+        "directions": { "type": "array", "items": { "type": "string" } },
+        "count_per_direction": { "type": "integer" },
+        "variant_axis": { "type": "array", "items": { "type": "string" } },
+        "direction_library": { "type": "string", "description": "Path to variant JSON library" }
+      }
+    },
+    "difficulty": {
+      "type": "object",
+      "properties": {
+        "level": { "enum": ["低级", "中级", "高级"] },
+        "score": { "type": "integer" },
+        "reasoning": { "type": "string" },
+        "recommended_first_frame": { "type": "boolean" },
+        "first_frame_reason": { "type": "string" }
+      }
+    }
+  }
+}

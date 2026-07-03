@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AdFlow Canvas · Hermes</title>
+  <link rel="stylesheet" href="/assets/flow.css" />
+  <style>
+    html, body { margin: 0; height: 100%; background: #eef2f7; overflow: hidden; }
+    .hermes-wrap { display: flex; flex-direction: column; height: 100vh; }
+    .hermes-bar {
+      display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+      background: #fff; border-bottom: 1px solid #e2e8f0; font: 13px/1.4 system-ui, sans-serif;
+      flex-wrap: wrap;
+    }
+    .hermes-bar strong { color: #0f172a; }
+    .hermes-bar span { color: #64748b; }
+    .hermes-tools { display: flex; gap: 6px; margin-left: auto; }
+    .hermes-tools button {
+      border: 1px solid #cbd5e1; background: #fff; border-radius: 8px;
+      padding: 4px 10px; font-size: 12px; cursor: pointer;
+    }
+    .hermes-tools button:hover { background: #f8fafc; }
+    .hermes-body { display: flex; flex: 1; min-height: 0; }
+    .hermes-board-wrap { flex: 1; min-width: 0; position: relative; }
+    #canvas-board { height: 100%; cursor: grab; }
+    #canvas-board.is-panning { cursor: grabbing; }
+    .hermes-inspector {
+      width: 280px; border-left: 1px solid #e2e8f0; background: #fff;
+      padding: 12px; overflow: auto; font: 12px/1.5 system-ui, sans-serif;
+    }
+    .hermes-inspector h3 { margin: 0 0 8px; font-size: 13px; color: #0f172a; }
+    .hermes-inspector pre {
+      white-space: pre-wrap; word-break: break-word; margin: 0;
+      color: #334155; background: #f8fafc; padding: 8px; border-radius: 8px;
+    }
+    .canvas-node { cursor: grab; }
+    .canvas-node.active { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    .canvas-node.dragging { cursor: grabbing; opacity: 0.92; }
+    .node-badge.idle { background: #e2e8f0; color: #475569; }
+    .hermes-hint { color: #64748b; font-size: 11px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="hermes-wrap">
+    <header class="hermes-bar">
+      <strong>AdFlow Workflow Canvas</strong>
+      <span id="meta-line">Loading…</span>
+      <div class="hermes-tools">
+        <button type="button" id="btn-zoom-out" title="Zoom out">−</button>
+        <button type="button" id="btn-zoom-in" title="Zoom in">+</button>
+        <button type="button" id="btn-fit" title="Fit view">Fit</button>
+        <button type="button" id="btn-grid" title="Toggle grid">Grid</button>
+      </div>
+    </header>
+    <div class="hermes-body">
+      <div class="hermes-board-wrap">
+        <div id="canvas-board" class="canvas-board creatify-canvas">
+          <div id="canvas-pan" class="canvas-pan">
+            <div id="canvas-stage" class="canvas-stage">
+              <svg id="canvas-links" class="canvas-links" aria-hidden="true"></svg>
+              <div id="canvas-nodes" class="canvas-nodes"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <aside class="hermes-inspector">
+        <h3 id="inspector-title">节点详情</h3>
+        <pre id="inspector-body">点击画布上的节点查看详情。可拖拽节点、滚轮缩放、拖动画布平移。</pre>
+        <p class="hermes-hint">只读预览 · 每 3s 同步服务器状态</p>
+      </aside>
+    </div>
+  </div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const batchId = params.get("batch_id") || "";
+    const pollMs = Number(params.get("poll") || 3000);
+    const NODE_W = 200;
+    const NODE_H = 96;
+    const state = {
+      nodes: [],
+      selectedId: "",
+      canvas: {
+        edges: [],
+        layout: {},
+        zoom: 0.72,
+        view: { x: 24, y: 48 },
+        size: { w: 1460, h: 760 },
+        showGrid: true,
+        draggingNode: "",
+        dragMoved: false,
+        boardBound: false,
+      },
+    };
+
+    const $ = (s) => document.querySelector(s);
+    const $$ = (s) => document.querySelectorAll(s);
+
+    function esc(v) {
+      return String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+
+    function clampZoom(z) {
+      return Math.min(1.6, Math.max(0.35, z));
+    }
+
+    function applyViewport() {
+      const pan = $("#canvas-pan");
+      const stage = $("#canvas-stage");
+      const z = state.canvas.zoom;
+      pan.style.width = `${state.canvas.size.w * z}px`;
+      pan.style.height = `${state.canvas.size.h * z}px`;
+      stage.style.transform = `translate(${state.canvas.view.x}px, ${state.canvas.view.y}px) scale(${z})`;
+      stage.style.width = `${state.canvas.size.w}px`;
+      stage.style.height = `${state.canvas.size.h}px`;
+      $("#canvas-board").classList.toggle("no-grid", !state.canvas.showGrid);
+    }
+
+    function boardPointerToStage(clientX, clientY) {
+      const board = $("#canvas-board");
+      const rect = board.getBoundingClientRect();
+      const z = state.canvas.zoom;
+      return {
+        x: (clientX - rect.left - state.canvas.view.x) / z,
+        y: (clientY - rect.top - state.canvas.view.y) / z,
+      };
+    }
+
+    function zoomAtPoint(clientX, clientY, nextZoom) {
+      const board = $("#canvas-board");
+      const rect = board.getBoundingClientRect();
+      const prev = state.canvas.zoom;
+      const stageX = (clientX - rect.left - state.canvas.view.x) / prev;
+      const stageY = (clientY - rect.top - state.canvas.view.y) / prev;
+      state.canvas.zoom = clampZoom(nextZoom);
+      state.canvas.view.x = clientX - rect.left - stageX * state.canvas.zoom;
+      state.canvas.view.y = clientY - rect.top - stageY * state.canvas.zoom;
+      applyViewport();
+      renderLinks();
+    }
+
+    function centerView() {
+      const board = $("#canvas-board");
+      const z = state.canvas.zoom;
+      state.canvas.view.x = (board.clientWidth - state.canvas.size.w * z) / 2;
+      state.canvas.view.y = (board.clientHeight - state.canvas.size.h * z) / 2;
+      applyViewport();
+      renderLinks();
+    }
+
+    function fitView() {
+      const board = $("#canvas-board");
+      const fitW = board.clientWidth / state.canvas.size.w;
+      const fitH = board.clientHeight / state.canvas.size.h;
+      state.canvas.zoom = clampZoom(Math.min(fitW, fitH) * 0.92);
+      centerView();
+    }
+
+    function linkPath(a, b) {
+      const mx = (a.x + b.x) / 2;
+      return `M ${a.x} ${a.y} C ${mx} ${a.y}, ${mx} ${b.y}, ${b.x} ${b.y}`;
+    }
+
+    function portCenter(nodeId, side) {
+      const pos = state.canvas.layout[nodeId] || { x: 0, y: 0 };
+      if (side === "out") return { x: pos.x + NODE_W, y: pos.y + NODE_H / 2 };
+      return { x: pos.x, y: pos.y + NODE_H / 2 };
+    }
+
+    function renderLinks() {
+      const svg = $("#canvas-links");
+      svg.innerHTML = (state.canvas.edges || []).map((e) => {
+        const a = portCenter(e.from, "out");
+        const b = portCenter(e.to, "in");
+        return `<path class="canvas-link" d="${linkPath(a, b)}"></path>`;
+      }).join("");
+    }
+
+    function showInspector(node) {
+      if (!node) return;
+      $("#inspector-title").textContent = `${node.label} · ${node.status}`;
+      $("#inspector-body").textContent = node.summary || "(无摘要)";
+    }
+
+    function renderNodes() {
+      const host = $("#canvas-nodes");
+      host.innerHTML = state.nodes.map((n) => {
+        if (!state.canvas.layout[n.id]) state.canvas.layout[n.id] = { x: n.x, y: n.y };
+        const pos = state.canvas.layout[n.id];
+        const cls = n.status === "done" ? "done" : n.status === "running" ? "running" : n.status === "fail" ? "fail" : "idle";
+        const active = state.selectedId === n.id ? "active" : "";
+        return `
+          <article class="canvas-node ${active}" data-node="${n.id}" style="left:${pos.x}px;top:${pos.y}px;">
+            <div class="canvas-node-head">
+              <div class="canvas-node-title"><span class="canvas-node-label">${esc(n.label)}</span></div>
+              <span class="node-badge ${cls}">${esc(n.status)}</span>
+            </div>
+            <div class="canvas-node-body">${esc(n.summary)}</div>
+          </article>`;
+      }).join("");
+      bindNodeInteractions();
+      renderLinks();
+      applyViewport();
+    }
+
+    function bindNodeInteractions() {
+      $$("#canvas-nodes .canvas-node").forEach((nodeEl) => {
+        const nodeId = nodeEl.dataset.node;
+        nodeEl.onpointerdown = (e) => {
+          if (e.button !== 0) return;
+          e.stopPropagation();
+          state.selectedId = nodeId;
+          const node = state.nodes.find((n) => n.id === nodeId);
+          showInspector(node);
+          state.canvas.dragMoved = false;
+          state.canvas.draggingNode = nodeId;
+          nodeEl.classList.add("dragging");
+          const start = boardPointerToStage(e.clientX, e.clientY);
+          const pos = state.canvas.layout[nodeId];
+          const offsetX = start.x - pos.x;
+          const offsetY = start.y - pos.y;
+          const onMove = (ev) => {
+            const pt = boardPointerToStage(ev.clientX, ev.clientY);
+            const maxX = Math.max(0, state.canvas.size.w - NODE_W - 8);
+            const maxY = Math.max(0, state.canvas.size.h - NODE_H - 8);
+            pos.x = Math.max(8, Math.min(maxX, pt.x - offsetX));
+            pos.y = Math.max(8, Math.min(maxY, pt.y - offsetY));
+            state.canvas.dragMoved = true;
+            nodeEl.style.left = `${pos.x}px`;
+            nodeEl.style.top = `${pos.y}px`;
+            renderLinks();
+          };
+          const onUp = () => {
+            nodeEl.classList.remove("dragging");
+            state.canvas.draggingNode = "";
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onUp);
+            renderNodes();
+          };
+          window.addEventListener("pointermove", onMove);
+          window.addEventListener("pointerup", onUp);
+        };
+        nodeEl.onclick = (e) => {
+          e.stopPropagation();
+          if (state.canvas.dragMoved) return;
+          state.selectedId = nodeId;
+          showInspector(state.nodes.find((n) => n.id === nodeId));
+          renderNodes();
+        };
+      });
+    }
+
+    function bindBoard() {
+      if (state.canvas.boardBound) return;
+      state.canvas.boardBound = true;
+      const board = $("#canvas-board");
+      let panSession = null;
+      const onPanMove = (e) => {
+        if (!panSession) return;
+        state.canvas.view.x = panSession.vx + (e.clientX - panSession.x);
+        state.canvas.view.y = panSession.vy + (e.clientY - panSession.y);
+        applyViewport();
+        renderLinks();
+      };
+      const endPan = () => {
+        if (!panSession) return;
+        board.classList.remove("is-panning");
+        panSession = null;
+        window.removeEventListener("pointermove", onPanMove);
+        window.removeEventListener("pointerup", endPan);
+      };
+      board.addEventListener("pointerdown", (e) => {
+        if (e.target.closest(".canvas-node")) return;
+        if (e.button !== 0 && e.button !== 1) return;
+        e.preventDefault();
+        panSession = { x: e.clientX, y: e.clientY, vx: state.canvas.view.x, vy: state.canvas.view.y };
+        board.classList.add("is-panning");
+        window.addEventListener("pointermove", onPanMove);
+        window.addEventListener("pointerup", endPan);
+      });
+      board.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        zoomAtPoint(e.clientX, e.clientY, state.canvas.zoom * (e.deltaY < 0 ? 1.08 : 0.92));
+      }, { passive: false });
+    }
+
+    async function refresh() {
+      const q = batchId ? `?batch_id=${encodeURIComponent(batchId)}` : "";
+      const res = await fetch("/api/canvas/state" + q);
+      const data = await res.json();
+      state.canvas.edges = data.edges || [];
+      state.canvas.size = data.size || state.canvas.size;
+      state.nodes = data.nodes || [];
+      data.nodes.forEach((n) => {
+        if (!state.canvas.draggingNode && state.canvas.layout[n.id]) {
+          /* keep local drag position */
+        } else if (!state.canvas.layout[n.id]) {
+          state.canvas.layout[n.id] = { x: n.x, y: n.y };
+        }
+      });
+      $("#meta-line").textContent =
+        `${data.batch_id || "无批次"} · ${data.product || "—"} · ${data.direction || "—"} · ${data.batch_status || ""}`;
+      if (!state.canvas.draggingNode) renderNodes();
+      else renderLinks();
+    }
+
+    $("#btn-zoom-in").onclick = () => { state.canvas.zoom = clampZoom(state.canvas.zoom + 0.1); applyViewport(); renderLinks(); };
+    $("#btn-zoom-out").onclick = () => { state.canvas.zoom = clampZoom(state.canvas.zoom - 0.1); applyViewport(); renderLinks(); };
+    $("#btn-fit").onclick = fitView;
+    $("#btn-grid").onclick = () => { state.canvas.showGrid = !state.canvas.showGrid; applyViewport(); };
+
+    bindBoard();
+    refresh().then(fitView);
+    setInterval(refresh, pollMs);
+  </script>
+</body>
+</html>

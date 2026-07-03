@@ -1,0 +1,77 @@
+{
+  "agent_code": "vidau_flow",
+  "agent_name": "VidAU Flow",
+  "agent_name_en": "VidAU Flow",
+  "tagline": "广告素材批量生产线 — 脚本 · 审核 · 分镜 · AI 出片",
+  "tagline_en": "Batch ad creative pipeline — scripts, review, storyboards & AI video",
+  "description": "面向 TikTok / 短视频投放团队的一站式素材工作流：批量下达指令、AI 写脚本、剪辑审核、分镜 Prompt、主站 AI 出片。脚本与 Prompt 不扣 VidAU 积分；出片按模型与时长实时扣费，失败自动退币。",
+  "description_en": "One-stop short-form ad workflow for performance teams: batch briefs, AI scripts, human review, storyboard prompts, and platform AI video. Scripts & prompts are free; video renders are charged per task with auto-refund on failure.",
+  "pricing_note": "1 积分 ≈ $0.01。出片费用以主站 getTaskCost 为准；以下为 Seedance 2.0 Fast 720P、15s、双段成片的参考用量。",
+  "pricing_note_en": "1 credit ≈ $0.01. Video cost follows platform getTaskCost; estimates below assume Seedance 2.0 Fast 720P, 15s, two segments per ad.",
+  "features": [
+    "批量下达生产指令（产品 × 方向 × 数量）",
+    "AI 脚本生成与脚本 / Prompt 审核流",
+    "生产看板与批次管理",
+    "分镜 Prompt 自动生成",
+    "主站 AI 视频出片（Seedance / HappyHorse）",
+    "可选 Nano Banana 首帧图（复杂产品更精准）",
+    "SSO 统一登录，积分与主站同步",
+    "出片失败自动退币"
+  ],
+  "features_en": [
+    "Batch production briefs (product × angle × quantity)",
+    "AI scripts & script / prompt review workflow",
+    "Production board & batch tracking",
+    "Auto storyboard prompts",
+    "Platform AI video (Seedance / HappyHorse)",
+    "Optional Nano Banana first-frame for complex products",
+    "VidAU SSO with shared credit balance",
+    "Auto refund on failed renders"
+  ],
+  "coin_usage": [
+    {
+      "action": "脚本 / Prompt 生成",
+      "estimate_coins": "0",
+      "note": "走 Agent 自有 LLM，不扣 VidAU 积分"
+    },
+    {
+      "action": "首帧图 Nano Banana2（2K，可选）",
+      "estimate_coins": "约 10",
+      "note": "每条成片最多 1 次"
+    },
+    {
+      "action": "出片单段 15s（Seedance 2.0 Fast 720P）",
+      "estimate_coins": "约 300",
+      "note": "双段成片扣 2 次"
+    },
+    {
+      "action": "一条完整成片（双段 + 首帧，参考）",
+      "estimate_coins": "约 610",
+      "note": "约 18 条/月（11,000 积分）；高规格模型消耗更高"
+    }
+  ],
+  "packages": [
+    {
+      "id": "flow_monthly",
+      "name": "VidAU Flow",
+      "name_en": "VidAU Flow",
+      "price_usd": 99,
+      "coins": 11000,
+      "period": "month",
+      "period_label": "月付",
+      "description": "广告素材批量生产月度套餐。含 11,000 积分/月，约可完成 15～18 条双段成片（Seedance 2.0 Fast 720P，15s）；脚本与审核不限次数。",
+      "description_en": "Monthly plan for batch ad production. Includes 11,000 credits/mo — roughly 15–18 two-segment ads (Seedance 2.0 Fast 720P, 15s). Unlimited scripts & reviews.",
+      "highlights": [
+        "11,000 积分 / 月",
+        "批量脚本 + 审核 + 出片",
+        "生产看板",
+        "失败自动退币"
+      ],
+      "recommended": true
+    }
+  ],
+  "contact": {
+    "config_owner": "彭悠",
+    "note": "单套餐对齐 Creative Agent：$99/月 · 11,000 credits。agent_code=vidau_flow。"
+  }
+}

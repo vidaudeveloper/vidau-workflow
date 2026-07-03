@@ -1,0 +1,57 @@
+# 在 GitLab 项目 Settings → CI/CD → Variables 添加：
+#   DEPLOY_SSH_KEY   (Type: File) — 本机 ~/.ssh/id_ed25519 私钥全文
+#   DEPLOY_HOST      = 服务器 IP（测试/生产各配一套 Variable 或手动选）
+#   DEPLOY_USER      = root
+#   DEPLOY_ENV_FILE  (Type: File, Masked) — 服务器 .env 全文
+#
+# 分支约定：test → 测试环境；main → 正式环境
+
+stages:
+  - deploy
+
+.deploy_update:
+  image: alpine:3.20
+  before_script:
+    - apk add --no-cache openssh-client git bash curl
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - cp "$DEPLOY_SSH_KEY" ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+  script:
+    - |
+      ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no "${DEPLOY_USER}@${DEPLOY_HOST}" \
+        "APP_DIR=/opt/vidau-workflow GIT_BRANCH=${DEPLOY_GIT_BRANCH} bash -s" \
+        < scripts/jenkins_update.sh
+
+deploy_test:
+  extends: .deploy_update
+  stage: deploy
+  variables:
+    DEPLOY_GIT_BRANCH: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+    - if: $CI_COMMIT_BRANCH == "test"
+      when: manual
+
+deploy_production:
+  stage: deploy
+  image: alpine:3.20
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+  before_script:
+    - apk add --no-cache openssh-client git bash curl
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - cp "$DEPLOY_SSH_KEY" ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+  script:
+    - |
+      ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no "${DEPLOY_USER}@${DEPLOY_HOST}" \
+        "APP_DIR=/opt/vidau-workflow GIT_BRANCH=main bash -s" \
+        < scripts/jenkins_update.sh
+    - scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no "$DEPLOY_ENV_FILE" "${DEPLOY_USER}@${DEPLOY_HOST}:/opt/vidau-workflow/.env"
+    - |
+      ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no "${DEPLOY_USER}@${DEPLOY_HOST}" \
+        "sudo systemctl restart bluetti-workflow && sleep 2 && curl -fsS http://127.0.0.1:8787/health"

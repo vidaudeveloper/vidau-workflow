@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>登录 · Ad Flow Agent</title>
+  <link rel="icon" href="/assets/logo.png" type="image/png" />
+  <link rel="stylesheet" href="/assets/styles.css" />
+  <link rel="stylesheet" href="/assets/flow.css" />
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background-color: #09090f;
+      background-image:
+        radial-gradient(ellipse 120% 80% at 50% -30%, rgba(124, 58, 237, 0.22), transparent 55%),
+        radial-gradient(ellipse 60% 50% at 100% 20%, rgba(59, 130, 246, 0.12), transparent);
+    }
+    .login-shell {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .login-card {
+      width: min(400px, 92vw);
+      padding: 2.5rem 2rem;
+      border-radius: 24px;
+      background: rgba(22, 24, 32, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(20px);
+      text-align: center;
+    }
+    .login-card .brand-mark {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      object-fit: cover;
+      box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35);
+    }
+    .login-card .brand-title {
+      margin: 1rem 0 0.35rem;
+      font-size: 1.35rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #e9d5ff, #93c5fd);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .login-card .brand-sub {
+      margin: 0 0 1.75rem;
+      color: #a1a1aa;
+      font-size: 0.88rem;
+    }
+    .login-status {
+      color: #a1a1aa;
+      font-size: 0.9rem;
+      min-height: 1.4em;
+      margin-bottom: 1rem;
+    }
+    .login-error { color: #f87171; font-size: 0.85rem; min-height: 1.2em; margin-bottom: 1rem; }
+    .login-form-panel { text-align: left; }
+    .login-form-panel label { display: block; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
+    .login-form-panel input {
+      width: 100%;
+      margin-bottom: 14px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(0,0,0,0.25);
+      color: var(--text);
+    }
+    .login-test-hint {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--muted);
+      background: rgba(255, 193, 7, 0.08);
+      border: 1px solid rgba(255, 193, 7, 0.35);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 16px;
+    }
+    .login-test-hint code { font-size: 12px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="login-shell">
+    <div class="login-card">
+      <img class="brand-mark" src="/assets/logo.png" width="52" height="52" alt="Ad Flow Agent" />
+      <h1 class="brand-title">Ad Flow Agent</h1>
+      <p class="brand-sub">AI 广告生成工作流</p>
+
+      <div id="loading-panel">
+        <div class="flow-auth-spinner"></div>
+        <p class="login-status" id="loading-text">正在连接账号…</p>
+      </div>
+
+      <div id="sso-login" class="hidden">
+        <p class="login-status">使用 VidAU 账号登录</p>
+        <div class="login-error" id="sso-error"></div>
+        <button type="button" class="btn primary flow-generate-btn" id="sso-login-btn" style="width:100%;min-width:0">
+          继续登录
+        </button>
+      </div>
+
+      <div id="local-login" class="login-form-panel hidden">
+        <div class="login-test-hint">
+          <strong>测试账号</strong>：登录名 <code>test</code>，密码 <code>testtest</code>
+        </div>
+        <form id="login-form">
+          <label for="email">账号 / 邮箱</label>
+          <input id="email" type="text" autocomplete="username" required placeholder="test 或公司邮箱" />
+          <label for="password">密码</label>
+          <input id="password" type="password" autocomplete="current-password" required />
+          <div class="login-error" id="login-error"></div>
+          <button type="submit" class="btn primary flow-generate-btn" style="width:100%;min-width:0">登录</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <script src="/assets/sso.js"></script>
+  <script>
+    const form = document.getElementById("login-form");
+    const errEl = document.getElementById("login-error");
+    const loadingPanel = document.getElementById("loading-panel");
+    const loadingText = document.getElementById("loading-text");
+    const ssoPanel = document.getElementById("sso-login");
+    const localPanel = document.getElementById("local-login");
+    const ssoErrEl = document.getElementById("sso-error");
+    const ssoBtn = document.getElementById("sso-login-btn");
+
+    function setLoading(msg) {
+      loadingPanel.classList.remove("hidden");
+      ssoPanel.classList.add("hidden");
+      localPanel.classList.add("hidden");
+      loadingText.textContent = msg || "正在连接账号…";
+    }
+
+    function showPanel(panel) {
+      loadingPanel.classList.add("hidden");
+      ssoPanel.classList.add("hidden");
+      localPanel.classList.add("hidden");
+      panel.classList.remove("hidden");
+    }
+
+    function redirectAfterLogin() {
+      const next = new URLSearchParams(location.search).get("next") || "/";
+      if (!next.startsWith("/") || next.startsWith("//")) {
+        location.href = "/";
+        return;
+      }
+      setLoading("登录成功，正在进入…");
+      location.href = next;
+    }
+
+    async function handleSsoLogin(token) {
+      if (window.__ssoLoginHandled) return;
+      window.__ssoLoginHandled = true;
+      setLoading("正在建立会话…");
+      await VidauSsoHelper.establishSession(token);
+      redirectAfterLogin();
+    }
+
+    async function boot() {
+      setLoading("正在验证登录状态…");
+      const meta = await fetch("/api/meta", { credentials: "include" }).then((r) => r.json());
+      if (meta.current_user) {
+        redirectAfterLogin();
+        return;
+      }
+      if (!meta.auth_enabled) {
+        location.href = "/";
+        return;
+      }
+
+      if (meta.auth_mode === "platform" && meta.sso?.enabled) {
+        try {
+          setLoading("正在连接 VidAU 账号…");
+          await VidauSsoHelper.ensureInit(meta.sso, {
+            onLoginSuccess: async (_user, token) => {
+              try {
+                await handleSsoLogin(token);
+              } catch (err) {
+                window.__ssoLoginHandled = false;
+                showPanel(ssoPanel);
+                ssoErrEl.textContent = err.message || "登录失败";
+              }
+            },
+          });
+          const existing = await VidauSsoHelper.tryExistingSession(meta.sso).catch(() => null);
+          if (existing) {
+            redirectAfterLogin();
+            return;
+          }
+          setLoading("正在打开登录窗口…");
+          await VidauSsoHelper.promptLogin(meta.sso);
+          redirectAfterLogin();
+        } catch (err) {
+          window.__ssoLoginHandled = false;
+          showPanel(ssoPanel);
+          ssoErrEl.textContent = err.message || "登录已取消，可点击下方按钮重试";
+          ssoBtn.onclick = () => {
+            window.__ssoLoginHandled = false;
+            ssoErrEl.textContent = "";
+            setLoading("正在打开登录窗口…");
+            VidauSsoHelper.promptLogin(meta.sso)
+              .then(() => redirectAfterLogin())
+              .catch((e) => {
+                showPanel(ssoPanel);
+                ssoErrEl.textContent = e.message || "登录失败";
+              });
+          };
+        }
+        return;
+      }
+
+      if (meta.auth_mode === "platform") {
+        showPanel(ssoPanel);
+        ssoErrEl.textContent = "未配置 SSO，请联系管理员";
+        ssoBtn.disabled = true;
+        return;
+      }
+
+      showPanel(localPanel);
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errEl.textContent = "";
+      setLoading("正在登录…");
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || "登录失败");
+        if (data.is_test && data.login_notice) {
+          sessionStorage.setItem("test_login_notice", data.login_notice);
+        } else {
+          sessionStorage.removeItem("test_login_notice");
+        }
+        redirectAfterLogin();
+      } catch (err) {
+        showPanel(localPanel);
+        errEl.textContent = err.message || "登录失败";
+      }
+    });
+
+    boot();
+  </script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <title>Ad Flow Agent</title>
+  <link rel="icon" href="/assets/logo.png" type="image/png" />
+  <link rel="stylesheet" href="/assets/styles.css" />
+  <link rel="stylesheet" href="/assets/flow.css" />
+</head>
+<body>
+  <div class="flow-app creatify-app">
+    <div class="creatify-promo creatify-vip-banner" id="promo-banner">
+      <span class="creatify-promo-text" data-i18n="vipBannerText">升级 VIP 解锁更多积分、优先生成与高级模板</span>
+      <button type="button" class="creatify-promo-cta" id="vip-banner-cta" data-i18n="vipBannerCta">立即充值</button>
+      <button type="button" class="creatify-promo-close" id="promo-close" aria-label="Close">×</button>
+    </div>
+
+    <header class="creatify-header">
+      <div class="creatify-header-left">
+        <img class="creatify-logo" src="/assets/logo.png" alt="Ad Flow Agent" />
+        <span class="creatify-brand" data-i18n="brand">Ad Flow Agent</span>
+        <span class="creatify-divider" aria-hidden="true"></span>
+        <span class="creatify-project" id="project-name" data-i18n="projectUntitled">Untitled Flow</span>
+      </div>
+      <div class="creatify-header-center">
+        <div id="ai-status-pill" class="creatify-status-pill hidden">
+          <span class="creatify-status-dot" aria-hidden="true"></span>
+          <span id="ai-status-text" data-i18n="aiBuilding">AI 正在构建 — 画布编辑已暂停</span>
+        </div>
+      </div>
+      <div class="creatify-header-right">
+        <div class="flow-lang-toggle" role="group" aria-label="Language">
+          <button type="button" class="flow-lang-btn" data-ui-locale="zh" aria-pressed="true">中</button>
+          <button type="button" class="flow-lang-btn" data-ui-locale="en" aria-pressed="false">EN</button>
+        </div>
+        <span id="user-label" class="creatify-user hidden"></span>
+        <button id="login-btn" class="btn ghost btn-sm hidden" type="button" data-i18n="login">登录</button>
+        <span id="coin-badge" class="creatify-credits hidden">
+          <span class="credits-icon" aria-hidden="true">◆</span>
+          <span id="coin-value">—</span>
+        </span>
+        <button type="button" class="creatify-icon-btn" id="undo-btn" disabled title="Undo" aria-label="Undo">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 4.5H9.5C11.5 4.5 13 6 13 8C13 10 11.5 11.5 9.5 11.5H7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M5.5 2.5L3 4.5L5.5 6.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button type="button" class="creatify-icon-btn" id="redo-btn" disabled title="Redo" aria-label="Redo">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13 4.5H6.5C4.5 4.5 3 6 3 8C3 10 4.5 11.5 6.5 11.5H9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M10.5 2.5L13 4.5L10.5 6.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <label class="run-count-control" for="header-count">
+          <span data-i18n="optCount">数量</span>
+          <select id="header-count">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
+        </label>
+        <button id="run-workflow-btn" type="button" class="creatify-run-all">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3 2.5L11 7L3 11.5V2.5Z" fill="currentColor"/></svg>
+          <span data-i18n="runAll">Run all</span>
+        </button>
+        <button id="buy-btn" class="creatify-upgrade hidden" type="button" data-i18n="upgrade">Upgrade</button>
+      </div>
+    </header>
+
+    <div class="creatify-workspace">
+      <main class="creatify-canvas-zone">
+        <span id="guest-hint" class="sr-only hidden" data-i18n="guestHint">登录后即可生成广告并保存项目</span>
+        <span id="estimate" class="creatify-estimate hidden"></span>
+        <div id="error-box" class="creatify-toast hidden"></div>
+
+        <div id="canvas-board" class="canvas-board creatify-canvas">
+          <div id="canvas-pan" class="canvas-pan">
+            <div id="canvas-stage" class="canvas-stage">
+              <svg id="canvas-links" class="canvas-links" aria-hidden="true"></svg>
+              <div id="canvas-nodes" class="canvas-nodes"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="creatify-dock creatify-dock-left">
+          <button type="button" class="dock-btn" id="toggle-grid-btn" title="Toggle grid" aria-pressed="true">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/></svg>
+          </button>
+          <div class="dock-zoom">
+            <button type="button" class="dock-zoom-btn" id="zoom-out-btn" title="Zoom out">−</button>
+            <button type="button" class="dock-zoom-label" id="zoom-label" title="Reset zoom">100%</button>
+            <button type="button" class="dock-zoom-btn" id="zoom-in-btn" title="Zoom in">+</button>
+          </div>
+          <button type="button" class="dock-btn" id="zoom-fit-btn" title="Fit view">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2.5 6V3.5H5M11 3.5H13.5V6M13.5 10V13.5H11M5 13.5H2.5V10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+
+        <div class="creatify-dock creatify-dock-center">
+          <button type="button" class="dock-tool dock-tool-add" id="new-project-btn" title="New flow">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 3.5V14.5M3.5 9H14.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+          <button type="button" class="dock-tool" id="dock-focus-input" title="Input node">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="3" y="2.5" width="10" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 5.5H10.5M5.5 8H9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          </button>
+          <button type="button" class="dock-tool" id="dock-run" title="Run all">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 2.5L11 7L3 11.5V2.5Z" fill="currentColor"/></svg>
+          </button>
+          <button type="button" class="dock-tool" id="dock-pan" title="Pan mode" aria-pressed="false">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4.5 7.5V4.5C4.5 3.4 5.4 2.5 6.5 2.5C7.6 2.5 8.5 3.4 8.5 4.5V7.5M8.5 7.5V5.5C8.5 4.4 9.4 3.5 10.5 3.5C11.6 3.5 12.5 4.4 12.5 5.5V8.5C12.5 11 10.5 13 8 13H6.5C4 13 2 11 2 8.5V7.5C2 6.4 2.9 5.5 4 5.5C5.1 5.5 6 6.4 6 7.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+
+        <div id="impact-line" class="creatify-impact hidden"></div>
+        <div id="edge-list" class="creatify-edges hidden"></div>
+        <div id="branch-tabs" class="creatify-branch-tabs hidden" aria-label="Branches"></div>
+
+        <button type="button" id="copilot-toggle" class="creatify-copilot-fab" aria-label="Toggle AI Copilot">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M4 6.5C4 4.57 5.57 3 7.5 3H14.5C16.43 3 18 4.57 18 6.5V11.5C18 13.43 16.43 15 14.5 15H10.5L6.5 18.5V15H7.5C5.57 15 4 13.43 4 11.5V6.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        </button>
+      </main>
+
+      <aside id="chat-float" class="creatify-copilot">
+        <div class="creatify-copilot-head">
+          <div class="creatify-copilot-title-wrap">
+            <h2 data-i18n="chatTitle">AI Copilot</h2>
+            <span id="copilot-status" class="creatify-copilot-badge state-planning" data-i18n="copilotStatePlanning">Planning…</span>
+          </div>
+          <div class="creatify-copilot-head-actions">
+            <button type="button" class="creatify-icon-btn" id="copilot-collapse" aria-label="Collapse">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2.5" y="3" width="11" height="10" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M10 3V13" stroke="currentColor" stroke-width="1.2"/></svg>
+            </button>
+            <button type="button" class="creatify-icon-btn" id="copilot-close" aria-label="Close">×</button>
+          </div>
+        </div>
+        <div id="chat-log" class="chat-log"></div>
+        <div class="template-strip" id="template-strip">
+          <button type="button" class="chip" data-template="quick-ugc" data-i18n="tplQuickUgc">UGC 快速起量</button>
+          <button type="button" class="chip" data-template="product-demo" data-i18n="tplDemo">产品讲解</button>
+          <button type="button" class="chip" data-template="benefit-hook" data-i18n="tplBenefit">痛点钩子</button>
+        </div>
+        <form id="chat-form" class="creatify-composer">
+          <input type="file" id="attach-materials-input" multiple hidden />
+          <div class="creatify-composer-box">
+            <div class="creatify-composer-tools">
+              <button type="button" class="composer-chip" id="add-files-btn" data-i18n="addFiles" data-i18n-title="addFilesTitle">+ 上传文件</button>
+            </div>
+            <div id="attachment-chips" class="attachment-chips hidden" aria-live="polite"></div>
+            <textarea id="chat-input" rows="2" data-i18n-placeholder="chatPlaceholder"></textarea>
+            <div class="creatify-composer-foot">
+              <span class="creatify-model-tag">Copilot</span>
+              <div class="creatify-composer-actions">
+                <button type="button" class="creatify-stop-btn hidden" id="chat-stop" aria-label="Stop">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="2" y="2" width="8" height="8" rx="1.5" fill="currentColor"/></svg>
+                </button>
+                <button type="submit" class="creatify-send-btn" id="chat-send" aria-label="Send">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 2.5L11 7L3 11.5V2.5Z" fill="currentColor"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </aside>
+
+      <aside id="inspector-float" class="creatify-inspector hidden">
+        <div class="creatify-inspector-head">
+          <h2 data-i18n="inspectorTitle">Inspector</h2>
+          <div class="creatify-inspector-head-actions">
+            <span id="batch-label" class="creatify-batch-label"></span>
+            <button type="button" class="creatify-icon-btn" id="inspector-close" aria-label="Close">×</button>
+          </div>
+        </div>
+        <div class="creatify-inspector-scroll">
+          <div id="inspector-body" class="inspector-body"></div>
+          <section class="preview-block" id="preview-block">
+            <h3 data-i18n="previewTitle">预览</h3>
+            <div class="flow-preview-stage">
+              <div id="preview-empty" class="flow-preview-empty">
+                <p data-i18n="previewEmpty">视频出片后将在此播放</p>
+              </div>
+              <video id="preview-video" controls class="hidden"></video>
+            </div>
+            <p id="preview-status" class="flow-preview-meta" data-i18n="previewNotStarted">尚未开始生成</p>
+            <div class="flow-preview-actions">
+              <a id="download-video" class="btn primary btn-sm hidden" target="_blank" rel="noopener" data-i18n="downloadVideo">下载视频</a>
+              <a id="download-zip" class="btn ghost btn-sm hidden" target="_blank" rel="noopener" data-i18n="downloadZip">下载素材包</a>
+            </div>
+          </section>
+          <section class="compare-block" id="compare-block">
+            <h3 data-i18n="branchCompare">分支对比</h3>
+            <div id="branch-compare" class="compare-list muted" data-i18n="compareEmpty">暂无分支版本</div>
+          </section>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div id="auth-loading" class="flow-auth-loading hidden" aria-live="polite" aria-busy="true">
+    <div class="flow-auth-loading-card">
+      <img src="/assets/logo.png" width="48" height="48" alt="" class="flow-auth-logo" />
+      <h2 data-i18n="brand">Ad Flow Agent</h2>
+      <div class="flow-auth-spinner"></div>
+      <p id="auth-loading-text" data-i18n="authConnecting">正在连接账号…</p>
+    </div>
+  </div>
+
+  <script src="/assets/i18n.js"></script>
+  <script src="/assets/sso.js"></script>
+  <script src="/assets/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vidau-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vidau
+      POSTGRES_PASSWORD: vidau
+      POSTGRES_DB: vidau_flow
+    ports:
+      - "5433:5432"
+    volumes:
+      - vidau_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vidau -d vidau_flow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  vidau_pg_data:

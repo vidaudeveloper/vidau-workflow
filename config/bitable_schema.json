@@ -1,0 +1,86 @@
+{
+  "name": "BLUETTI 素材生产工作流",
+  "tables": [
+    {
+      "name": "批次任务",
+      "description": "一次指令批量生产的入口",
+      "fields": [
+        {"name": "批次ID", "type": "Text", "primary": true},
+        {"name": "产品", "type": "SingleSelect", "options": ["Apex 300", "Elite 300", "FridgePower", "Elite 100 V2", "Elite 100 MiNi", "Apex300+B300K", "其他"]},
+        {"name": "内容方向", "type": "SingleSelect", "options": ["①情感应急型", "②开箱实测型", "③场景对比型", "④极端天气应急型", "⑤功能解说型", "⑥日常融入生活型", "⑦用户回复答疑型", "⑧价格惊喜型", "⑨便携场景型", "⑩组合套餐型"]},
+        {"name": "生成数量", "type": "Number"},
+        {"name": "补充指令", "type": "Text"},
+        {"name": "批次状态", "type": "SingleSelect", "options": ["待生成", "生成中", "待脚本审核", "进行中", "已完成", "已取消"]},
+        {"name": "创建人", "type": "Text"},
+        {"name": "创建时间", "type": "DateTime"}
+      ]
+    },
+    {
+      "name": "脚本",
+      "description": "AI 生成的分镜脚本，剪辑同事在此审核",
+      "fields": [
+        {"name": "脚本ID", "type": "Text", "primary": true},
+        {"name": "关联批次", "type": "Text"},
+        {"name": "产品", "type": "Text"},
+        {"name": "内容方向", "type": "Text"},
+        {"name": "视频主题", "type": "Text"},
+        {"name": "Hook", "type": "Text"},
+        {"name": "内容大纲", "type": "Text"},
+        {"name": "分镜-时长", "type": "Text"},
+        {"name": "分镜-画面", "type": "Text"},
+        {"name": "分镜-口播", "type": "Text"},
+        {"name": "分镜-花字", "type": "Text"},
+        {"name": "CTA", "type": "Text"},
+        {"name": "审核状态", "type": "SingleSelect", "options": ["待审核", "通过", "不通过-人工剪辑", "不通过-废弃", "不通过-重生成"]},
+        {"name": "审核备注", "type": "Text"},
+        {"name": "审核人", "type": "Text"},
+        {"name": "流程状态", "type": "SingleSelect", "options": ["待生成", "已生成", "已终止", "进入Prompt", "进入人工剪辑"]}
+      ]
+    },
+    {
+      "name": "分镜Prompt",
+      "description": "脚本审核通过后自动生成的 AI 视频 prompt",
+      "fields": [
+        {"name": "PromptID", "type": "Text", "primary": true},
+        {"name": "关联脚本", "type": "Text"},
+        {"name": "出片方式", "type": "SingleSelect", "options": ["AI直出", "人工剪辑参考", "待决定"]},
+        {"name": "Sora提示词", "type": "Text"},
+        {"name": "负面提示词", "type": "Text"},
+        {"name": "时长秒数", "type": "Number"},
+        {"name": "画幅", "type": "SingleSelect", "options": ["9:16", "16:9", "1:1"]},
+        {"name": "审核状态", "type": "SingleSelect", "options": ["待审核", "通过", "不通过-调Prompt", "不通过-废弃", "不通过-改人工剪"]},
+        {"name": "审核备注", "type": "Text"},
+        {"name": "流程状态", "type": "SingleSelect", "options": ["待生成", "已生成", "已终止", "进入出片", "进入人工剪辑"]}
+      ]
+    },
+    {
+      "name": "视频产出",
+      "description": "最终素材产出与交付状态",
+      "fields": [
+        {"name": "视频ID", "type": "Text", "primary": true},
+        {"name": "关联Prompt", "type": "Text"},
+        {"name": "关联脚本", "type": "Text"},
+        {"name": "产出方式", "type": "SingleSelect", "options": ["AI直出", "人工二次剪辑", "混合"]},
+        {"name": "视频链接", "type": "Url"},
+        {"name": "字幕状态", "type": "SingleSelect", "options": ["未开始", "剪辑中", "已完成"]},
+        {"name": "产出状态", "type": "SingleSelect", "options": ["排队中", "生成中", "待交付", "已交付", "失败", "已废弃"]},
+        {"name": "失败原因", "type": "Text"},
+        {"name": "备注", "type": "Text"}
+      ]
+    }
+  ],
+  "status_flow": {
+    "script_review": {
+      "通过": "generate_prompt",
+      "不通过-人工剪辑": "mark_manual_edit",
+      "不通过-废弃": "terminate",
+      "不通过-重生成": "regenerate_script"
+    },
+    "prompt_review": {
+      "通过": "generate_video_or_manual",
+      "不通过-调Prompt": "regenerate_prompt",
+      "不通过-废弃": "terminate",
+      "不通过-改人工剪": "mark_manual_edit"
+    }
+  }
+}

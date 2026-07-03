@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <title>Ad Flow Agent · Pro</title>
+  <link rel="icon" href="/assets/logo.png" type="image/png" />
+  <link rel="stylesheet" href="/assets/styles.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-top">
+        <div class="app-brand">
+          <img class="brand-mark" src="/assets/logo.png" width="36" height="36" alt="Ad Flow Agent" />
+          <div id="user-account" class="user-account hidden" aria-label="当前账号">
+            <div class="user-avatar-wrap">
+              <img id="user-avatar" class="user-avatar hidden" alt="" />
+              <span id="user-avatar-fallback" class="user-avatar-fallback" aria-hidden="true"></span>
+            </div>
+            <div class="user-account-text">
+              <span id="user-display-name" class="user-display-name"></span>
+              <span id="user-email" class="user-email"></span>
+            </div>
+            <span id="credits-badge" class="credits-badge hidden" title="主站积分余额">
+              <span class="credits-icon" aria-hidden="true">◆</span>
+              <span id="credits-value">—</span>
+            </span>
+            <button type="button" class="btn ghost btn-sm hidden" id="buy-credits-btn">购买积分</button>
+          </div>
+          <div class="brand-text">
+            <h1 class="brand-title">Ad Flow <span class="brand-flow">Agent</span></h1>
+            <p class="subtitle">批次下达 → 脚本审核 → Prompt → 出片 · 后台处理，无需等待</p>
+          </div>
+        </div>
+        <button type="button" class="btn ghost btn-sm hidden" id="logout-btn">退出登录</button>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="create">新建批次</button>
+      <button class="tab" data-tab="board">生产看板</button>
+      <button class="tab" data-tab="scripts">脚本审核 <span class="badge" id="badge-scripts">0</span></button>
+      <button class="tab" data-tab="prompts">Prompt 审核 <span class="badge" id="badge-prompts">0</span></button>
+      <button class="tab" data-tab="videos">视频产出</button>
+      <button class="tab" data-tab="batches">批次记录</button>
+      <button class="tab" data-tab="config">固定配置</button>
+    </nav>
+  </header>
+
+  <main class="main">
+    <div id="test-env-banner" class="test-env-banner hidden" role="alert"></div>
+    <!-- 新建批次 -->
+    <section id="panel-create" class="panel active">
+      <div class="card">
+        <h2>下达生产指令</h2>
+        <form id="batch-form" class="form-grid">
+          <label class="full">
+            产品
+            <select name="product" id="product-select"></select>
+            <span class="muted" id="product-conversion-hint" style="display:block;margin-top:4px"></span>
+            <span class="muted" style="display:block;margin-top:6px">产品须已上传 1-9 张图片，无图产品不可选</span>
+          </label>
+          <label>
+            内容方向
+            <select name="direction" id="direction-select"></select>
+          </label>
+          <label>
+            制作等级
+            <select name="difficulty_level" id="difficulty-select">
+              <option value="低级">低级</option>
+            </select>
+          </label>
+          <label>
+            发布账号
+            <select name="account_id" id="account-select">
+              <option value="">不指定（通用）</option>
+            </select>
+          </label>
+          <label>
+            语言
+            <select name="language" id="language-select">
+              <option value="英语">英语</option>
+              <option value="西语">西语（拉美 es-MX）</option>
+            </select>
+            <span class="muted" style="display:block;margin-top:4px">西语将生成西班牙语口播，TTS 使用墨西哥西语音色</span>
+          </label>
+          <label>
+            生成数量
+            <input type="number" name="count" value="3" min="1" max="20" />
+          </label>
+          <label>
+            制作人
+            <input type="text" name="producer" placeholder="如 PH" />
+          </label>
+          <label>
+            创建人
+            <input type="text" name="creator" placeholder="你的名字" />
+          </label>
+          <label class="full">
+            补充指令
+            <textarea name="extra_instruction" rows="3" placeholder="例如：突出冰箱备电场景、强调限时活动价…"></textarea>
+          </label>
+          <label class="full checkbox first-frame-toggle">
+            <input type="checkbox" name="use_first_frame" id="use-first-frame" />
+            复杂交互 · 先用 Nano Banana 生成首帧图（作 Seedance 首帧，更精确还原产品细节，出片更慢）
+          </label>
+          <div class="full actions batch-actions">
+            <button type="submit" class="btn primary" id="submit-batch">开始生成</button>
+            <button type="button" class="btn success" id="submit-batch-autopilot">一键全流程</button>
+            <span class="muted batch-actions-hint">「开始生成」仅出脚本；「一键全流程」自动通过脚本与 Prompt 审核并出片（耗时较长，后台运行）</span>
+          </div>
+        </form>
+        <div id="batch-result" class="result hidden"></div>
+      </div>
+    </section>
+
+    <!-- 生产看板 -->
+    <section id="panel-board" class="panel">
+      <div class="toolbar">
+        <button class="btn ghost" id="refresh-board">刷新</button>
+      </div>
+      <div class="table-wrap">
+        <table class="board-table" id="production-board">
+          <thead>
+            <tr>
+              <th>ID</th><th>产品</th><th>方向</th><th>账号</th><th>语言</th>
+              <th>制作人</th><th>脚本审核</th><th>成片状态</th><th>审核反馈</th><th>FA</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 脚本审核 -->
+    <section id="panel-scripts" class="panel">
+      <div class="toolbar">
+        <select id="script-batch-filter">
+          <option value="">全部批次</option>
+        </select>
+        <label class="checkbox">
+          <input type="checkbox" id="script-pending-only" checked />
+          待审 / 生成中
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" id="script-auto-refresh" checked />
+          生成中自动刷新
+        </label>
+        <label class="reviewer-field">
+          审核人
+          <input type="text" id="default-reviewer" placeholder="你的名字" />
+        </label>
+        <button class="btn ghost" id="refresh-scripts">刷新</button>
+      </div>
+      <div id="scripts-list" class="cards"></div>
+    </section>
+
+    <!-- Prompt 审核 -->
+    <section id="panel-prompts" class="panel">
+      <div class="toolbar">
+        <label class="checkbox">
+          <input type="checkbox" id="prompt-pending-only" checked />
+          待审 / 生成中
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" id="prompt-auto-refresh" checked />
+          生成中自动刷新
+        </label>
+        <button class="btn ghost" id="refresh-prompts">刷新</button>
+      </div>
+      <div id="prompts-list" class="cards"></div>
+    </section>
+
+    <!-- 视频产出 -->
+    <section id="panel-videos" class="panel">
+      <div class="toolbar">
+        <label class="checkbox">
+          <input type="checkbox" id="video-auto-refresh" checked />
+          生成中自动刷新
+        </label>
+        <button class="btn ghost" id="refresh-videos">刷新</button>
+      </div>
+      <div id="videos-list" class="cards"></div>
+    </section>
+
+    <!-- 批次记录 -->
+    <section id="panel-batches" class="panel">
+      <div id="batches-list" class="cards"></div>
+    </section>
+
+    <!-- 固定配置 -->
+    <section id="panel-config" class="panel">
+      <div class="config-intro card">
+        <h2>固定配置</h2>
+        <p class="muted">产品、账号人设、内容方向等基础数据，与生产批次/脚本/成片独立。各子页可单独导入 CSV；完整备份（含产品图）请用 JSON 导出/导入。</p>
+        <div class="toolbar config-toolbar">
+          <button class="btn ghost hidden" id="config-export-btn" type="button">导出配置 JSON</button>
+          <button class="btn ghost hidden" id="config-import-btn" type="button">导入配置 JSON</button>
+          <input type="file" id="config-import-file" accept=".json,application/json" hidden />
+        </div>
+      </div>
+      <nav class="sub-tabs" id="config-subtabs">
+        <button type="button" class="sub-tab active" data-config="products">产品</button>
+        <button type="button" class="sub-tab" data-config="accounts">账号人设</button>
+        <button type="button" class="sub-tab" data-config="directions">内容方向</button>
+      </nav>
+      <div id="config-subpanel-products" class="config-subpanel active">
+        <div class="toolbar">
+          <button class="btn primary" id="add-product-btn">添加新产品</button>
+          <button class="btn ghost" id="import-products-csv-btn" type="button">导入产品 CSV</button>
+          <input type="file" id="import-products-csv-file" accept=".csv,text/csv" hidden />
+        </div>
+        <p class="muted" style="margin:0 0 12px">产品 CSV 仅导入名称/价格/卖点等文字字段，图片请在编辑页上传。</p>
+        <div id="products-list" class="cards"></div>
+      </div>
+      <div id="config-subpanel-accounts" class="config-subpanel">
+        <div class="toolbar">
+          <button class="btn primary" id="add-account-btn">添加账号</button>
+          <button class="btn ghost" id="import-accounts-csv-btn" type="button">导入账号 CSV</button>
+          <input type="file" id="import-accounts-csv-file" accept=".csv,text/csv" hidden />
+        </div>
+        <p class="muted" style="margin:0 0 12px">表头需含 No.、ID、username、语言、账号定位 等（与 Cindy Excel 导出一致）。</p>
+        <div id="accounts-list" class="cards"></div>
+      </div>
+      <div id="config-subpanel-directions" class="config-subpanel">
+        <div class="toolbar">
+          <button class="btn primary" id="add-direction-btn">添加新方向</button>
+          <button class="btn ghost" id="import-directions-csv-btn" type="button">导入方向 CSV</button>
+          <input type="file" id="import-directions-csv-file" accept=".csv,text/csv" hidden />
+        </div>
+        <p class="muted" style="margin:0 0 12px">方向 CSV 列：名称、说明、短码（可选）。</p>
+        <div id="directions-list" class="cards"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 产品/方向/账号管理弹窗 -->
+  <dialog id="mgmt-dialog" class="dialog">
+    <form id="mgmt-form">
+      <h3 id="mgmt-title">管理</h3>
+      <div id="mgmt-fields" class="form-grid"></div>
+      <div class="dialog-actions-row">
+        <button type="submit" class="btn primary">保存</button>
+        <button type="button" class="btn ghost" id="mgmt-cancel">取消</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 看板浏览弹窗 -->
+  <dialog id="board-browse-dialog" class="dialog dialog-wide">
+    <h3 id="board-browse-title">素材详情</h3>
+    <p id="board-browse-meta" class="muted"></p>
+    <div id="board-browse-body" class="browse-body"></div>
+    <div class="dialog-actions-row">
+      <button type="button" class="btn primary" id="board-browse-download">下载 ZIP 素材包</button>
+      <button type="button" class="btn ghost" id="board-browse-close">关闭</button>
+    </div>
+  </dialog>
+
+  <!-- 交付信息弹窗（生产看板） -->
+  <dialog id="delivery-dialog" class="dialog">
+    <form id="delivery-form">
+      <h3>更新交付信息</h3>
+      <p id="delivery-target" class="muted"></p>
+      <label>成片状态 <input type="text" name="delivery_status" placeholder="可审核 / ok" /></label>
+      <label>审核反馈 <textarea name="delivery_feedback" rows="2"></textarea></label>
+      <label>制作人 <input type="text" name="producer" /></label>
+      <label class="checkbox">
+        <input type="checkbox" name="fa_flag" value="1" />
+        FA 已完成
+      </label>
+      <div class="dialog-actions-row">
+        <button type="submit" class="btn primary">保存</button>
+        <button type="button" class="btn ghost" id="delivery-cancel">取消</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="task-tray" class="task-tray hidden"></div>
+  <div id="toast" class="toast hidden"></div>
+  <script src="/assets/sso.js"></script>
+  <script src="/assets/pro.js"></script>
+</body>
+</html>
